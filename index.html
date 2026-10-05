@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plane Mirror Reflection & Motion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+  <style>
+    .grab-cursor { cursor: grab; }
+    .grabbing-cursor { cursor: grabbing; }
+    .hatch-pattern {
+      background-image: repeating-linear-gradient(45deg, #94a3b8 0, #94a3b8 1px, transparent 0, transparent 6px);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+  <!-- Header Bar -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg">
+        🪞
+      </div>
+      <div>
+        <h1 class="font-bold text-lg text-white">Plane Mirror Reflection &amp; Image Kinematics</h1>
+        <p class="text-xs text-slate-400">Physics Demonstration: Relative Motion of Object, Mirror, and Virtual Image</p>
+      </div>
+    </div>
+
+    <div class="px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-medium flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span>Interactive: Drag Boy or Drag Mirror</span>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 flex flex-col gap-4 p-4 max-w-6xl mx-auto w-full">
+    <!-- Left: Interactive Simulation Viewport -->
+    <section class="flex-1 flex flex-col bg-slate-800/80 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
+      <!-- Toolbar -->
+      <div class="px-4 py-2.5 bg-slate-800 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2 text-slate-300">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <span id="instructionText" class="font-medium">Drag either the <strong>Boy</strong> or the <strong>Mirror</strong> left and right to observe the virtual image motion.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="resetAllPositions()" class="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 transition font-medium">
+            Reset Positions
+          </button>
+        </div>
+      </div>
+
+      <!-- SVG Canvas Arena -->
+      <div class="relative bg-gradient-to-b from-slate-950 to-slate-900 w-full overflow-hidden" id="canvasWrapper">
+        <svg id="simSvg" class="w-full block select-none" viewBox="-650 -195 1300 410">
+          <defs>
+            <!-- Mirror Hatching -->
+            <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45 0 0)">
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#64748b" stroke-width="1.5" />
+            </pattern>
+          </defs>
+
+          <!-- Metric Grid Background -->
+          <g id="gridLayer" opacity="0.15"></g>
+
+          <!-- Wall behind mirror -->
+          <rect id="virtualZone" x="0" y="-230" width="700" height="400" fill="#0f172a" opacity="0.6"></rect>
+          <text x="350" y="-180" text-anchor="middle" fill="#475569" font-size="16" font-weight="600" letter-spacing="3">VIRTUAL WORLD (BEHIND MIRROR)</text>
+          <text x="-350" y="-180" text-anchor="middle" fill="#475569" font-size="16" font-weight="600" letter-spacing="3">REAL WORLD (IN FRONT)</text>
+
+          <!-- Ground Floor -->
+          <line x1="-700" y1="160" x2="700" y2="160" stroke="#475569" stroke-width="2.5" />
+          <!-- Floor ruler markings (-6m to +6m) -->
+          <g id="rulerLayer"></g>
+
+          <!-- Ghost / Initial Position Markers -->
+          <g id="ghostLayer" opacity="0.3"></g>
+
+          <!-- BOY (Real Object) -->
+          <g id="boyGroup" class="grab-cursor">
+            <!-- Distance indicator line from mirror -->
+            <line id="boyDistLine" x1="0" y1="185" x2="0" y2="185" stroke="#818cf8" stroke-width="2" stroke-dasharray="4 3" />
+            <text id="boyDistText" x="0" y="202" fill="#a5b4fc" font-size="12" text-anchor="middle" font-weight="bold">d_o = 0.0 m</text>
+
+            <!-- Drag Handle Highlight -->
+            <circle cx="0" cy="50" r="45" fill="#6366f1" fill-opacity="0.08" stroke="#818cf8" stroke-dasharray="4 4" id="boyHandleRing" />
+            
+            <!-- Boy Character Graphic -->
+            <!-- Shadow -->
+            <ellipse cx="0" cy="158" rx="28" ry="6" fill="#000000" opacity="0.4" />
+            <!-- Feet & Shoes -->
+            <path d="M-8 152 L-8 158 M8 152 L8 158" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+            <ellipse cx="-11" cy="158" rx="7" ry="3.5" fill="#f43f5e" />
+            <ellipse cx="11" cy="158" rx="7" ry="3.5" fill="#f43f5e" />
+            <!-- Legs (Jeans) -->
+            <line x1="-8" y1="110" x2="-8" y2="152" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+            <line x1="8" y1="110" x2="8" y2="152" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+            <!-- Torso (Hoodie) -->
+            <rect x="-18" y="55" width="36" height="58" rx="10" fill="#3b82f6" />
+            <!-- Arms / Hands -->
+            <line x1="-18" y1="65" x2="-28" y2="105" stroke="#2563eb" stroke-width="6" stroke-linecap="round" />
+            <line x1="18" y1="65" x2="26" y2="95" stroke="#2563eb" stroke-width="6" stroke-linecap="round" />
+            <circle cx="-28" cy="106" r="4.5" fill="#fbcfe8" />
+            <circle cx="26" cy="96" r="4.5" fill="#fbcfe8" />
+            <!-- Head & Neck -->
+            <rect x="-5" y="44" width="10" height="12" fill="#fbcfe8" />
+            <circle cx="0" cy="30" r="22" fill="#fbcfe8" />
+            <!-- Hair -->
+            <path d="M-22 24 C-20 6, 20 6, 22 24 C14 10, -14 10, -22 24 Z" fill="#78350f" />
+            <path d="M-18 12 Q-5 -4 10 10 Q20 5 18 20" fill="#78350f" />
+            <!-- Eyes looking right towards mirror -->
+            <ellipse cx="9" cy="28" rx="2.5" ry="3.5" fill="#0f172a" />
+            <ellipse cx="18" cy="28" rx="2.5" ry="3.5" fill="#0f172a" />
+            <circle cx="10" cy="27" r="0.9" fill="#ffffff" />
+            <circle cx="19" cy="27" r="0.9" fill="#ffffff" />
+            <!-- Smile -->
+            <path d="M9 38 Q14 42 18 38" stroke="#b91c1c" stroke-width="1.8" fill="none" stroke-linecap="round" />
+
+            <!-- Label Tag -->
+            <g transform="translate(0, -10)">
+              <rect x="-35" y="-14" width="70" height="20" rx="5" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.5"/>
+              <text x="0" y="0" text-anchor="middle" fill="#c7d2fe" font-size="11" font-weight="bold">BOY (Object)</text>
+            </g>
+          </g>
+
+          <!-- MIRROR -->
+          <g id="mirrorGroup" class="grab-cursor">
+            <!-- Mirror Stand Bottom -->
+            <ellipse cx="0" cy="160" rx="22" ry="5" fill="#475569" />
+            <rect x="-4" y="145" width="8" height="16" fill="#334155" />
+            
+            <!-- Mirror Backing (Hatched Non-reflecting side) -->
+            <rect x="2" y="-150" width="14" height="298" fill="url(#hatch)" stroke="#64748b" stroke-width="1" />
+            <!-- Reflective Plane Surface (Silver front) -->
+            <line x1="0" y1="-155" x2="0" y2="155" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
+            <!-- Glass Shimmer -->
+            <line x1="-1" y1="-120" x2="-1" y2="120" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="35 15 15 15" opacity="0.85" />
+
+            <!-- Mirror Label & Handle -->
+            <g transform="translate(0, -170)">
+              <rect x="-42" y="-12" width="84" height="22" rx="6" fill="#0c4a6e" stroke="#0284c7" stroke-width="1.5" />
+              <text x="0" y="3" text-anchor="middle" fill="#bae6fd" font-size="11" font-weight="bold">MIRROR</text>
+            </g>
+            <circle cx="0" cy="0" r="32" fill="#0284c7" fill-opacity="0.08" stroke="#38bdf8" stroke-dasharray="4 4" id="mirrorHandleRing" />
+          </g>
+
+          <!-- IMAGE (Virtual laterally inverted) -->
+          <g id="imageGroup" opacity="0.75">
+            <!-- Distance indicator line from mirror -->
+            <line id="imageDistLine" x1="0" y1="185" x2="0" y2="185" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 3" />
+            <text id="imageDistText" x="0" y="202" fill="#7dd3fc" font-size="12" text-anchor="middle" font-weight="bold">d_i = 0.0 m</text>
+
+            <!-- Shadow -->
+            <ellipse cx="0" cy="158" rx="28" ry="6" fill="#000000" opacity="0.25" />
+            <!-- Feet & Shoes -->
+            <path d="M-8 152 L-8 158 M8 152 L8 158" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+            <ellipse cx="-11" cy="158" rx="7" ry="3.5" fill="#f43f5e" />
+            <ellipse cx="11" cy="158" rx="7" ry="3.5" fill="#f43f5e" />
+            <!-- Legs (Jeans) -->
+            <line x1="-8" y1="110" x2="-8" y2="152" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+            <line x1="8" y1="110" x2="8" y2="152" stroke="#2563eb" stroke-width="8" stroke-linecap="round"/>
+            <!-- Torso (Hoodie) -->
+            <rect x="-18" y="55" width="36" height="58" rx="10" fill="#3b82f6" />
+            <!-- Arms / Hands (Laterally mirrored: left looking towards mirror) -->
+            <line x1="18" y1="65" x2="28" y2="105" stroke="#2563eb" stroke-width="6" stroke-linecap="round" />
+            <line x1="-18" y1="65" x2="-26" y2="95" stroke="#2563eb" stroke-width="6" stroke-linecap="round" />
+            <circle cx="28" cy="106" r="4.5" fill="#fbcfe8" />
+            <circle cx="-26" cy="96" r="4.5" fill="#fbcfe8" />
+            <!-- Head & Neck -->
+            <rect x="-5" y="44" width="10" height="12" fill="#fbcfe8" />
+            <circle cx="0" cy="30" r="22" fill="#fbcfe8" />
+            <!-- Hair -->
+            <path d="M22 24 C20 6, -20 6, -22 24 C-14 10, 14 10, 22 24 Z" fill="#78350f" />
+            <!-- Eyes looking LEFT towards mirror -->
+            <ellipse cx="-9" cy="28" rx="2.5" ry="3.5" fill="#0f172a" />
+            <ellipse cx="-18" cy="28" rx="2.5" ry="3.5" fill="#0f172a" />
+            <circle cx="-10" cy="27" r="0.9" fill="#ffffff" />
+            <circle cx="-19" cy="27" r="0.9" fill="#ffffff" />
+            <!-- Smile -->
+            <path d="M-9 38 Q-14 42 -18 38" stroke="#b91c1c" stroke-width="1.8" fill="none" stroke-linecap="round" />
+
+            <!-- Virtual Image Badge -->
+            <g transform="translate(0, -10)">
+              <rect x="-48" y="-14" width="96" height="20" rx="5" fill="#082f49" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 2"/>
+              <text x="0" y="0" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="bold">IMAGE (Virtual)</text>
+            </g>
+          </g>
+
+          <!-- Overall Total Distance Span: Boy to Image -->
+          <g id="totalSpanGroup" transform="translate(0, -130)">
+            <line id="totalSpanLine" x1="0" y1="0" x2="0" y2="0" stroke="#f59e0b" stroke-width="2" />
+            <rect id="totalSpanBadge" x="-60" y="-12" width="120" height="24" rx="6" fill="#451a03" stroke="#f59e0b" stroke-width="1.5" />
+            <text id="totalSpanText" x="0" y="4" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="bold">Boy ↔ Image: 0.0 m</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Distance Metrics Bar (Directly beneath diagram) -->
+      <div class="bg-slate-900/95 border-t border-slate-700/80 py-3 px-4 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs shadow-inner">
+        <div class="flex items-center gap-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+          <div>
+            <div class="text-slate-400 font-medium text-[11px]">Object Distance ($d_o$)</div>
+            <div id="statDo" class="text-base font-bold text-indigo-400 leading-tight">2.50 m</div>
+          </div>
+        </div>
+        <div class="h-8 w-px bg-slate-700/80 hidden sm:block"></div>
+        <div class="flex items-center gap-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+          <div>
+            <div class="text-slate-400 font-medium text-[11px]">Image Distance ($d_i$)</div>
+            <div id="statDi" class="text-base font-bold text-sky-400 leading-tight">2.50 m</div>
+          </div>
+        </div>
+        <div class="h-8 w-px bg-slate-700/80 hidden sm:block"></div>
+        <div class="flex items-center gap-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+          <div>
+            <div class="text-slate-400 font-medium text-[11px]">Total Separation ($2d_o$)</div>
+            <div id="statSeparation" class="text-base font-bold text-amber-400 leading-tight">5.00 m</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // State variables (all in meters)
+    // Scale: 100 SVG units = 1 meter
+    const SCALE = 100;
+
+    // Positions relative to laboratory origin (meters)
+    let posBoy = -2.5;     // Boy starts at x = -2.5m
+    let posMirror = 0.0;   // Mirror starts at x = 0.0m
+    
+    // Initial reference positions for calculating displacement Δx
+    let refBoy = -2.5;
+    let refMirror = 0.0;
+    let refImage = 2.5;
+
+    // DOM Elements
+    const simSvg = document.getElementById('simSvg');
+    const boyGroup = document.getElementById('boyGroup');
+    const mirrorGroup = document.getElementById('mirrorGroup');
+    const imageGroup = document.getElementById('imageGroup');
+    const rulerLayer = document.getElementById('rulerLayer');
+    const gridLayer = document.getElementById('gridLayer');
+    const ghostLayer = document.getElementById('ghostLayer');
+
+    // UI text elements
+    const statDo = document.getElementById('statDo');
+    const statDi = document.getElementById('statDi');
+    const statSeparation = document.getElementById('statSeparation');
+    const instructionText = document.getElementById('instructionText');
+
+    // Dragging physics
+    let isDraggingBoy = false;
+    let isDraggingMirror = false;
+    let dragStartX = 0;
+    let initialObjX = 0;
+
+    // Convert SVG mouse coords
+    function getSvgCoords(evt) {
+      const pt = simSvg.createSVGPoint();
+      pt.x = evt.clientX;
+      pt.y = evt.clientY;
+      return pt.matrixTransform(simSvg.getScreenCTM().inverse());
+    }
+
+    // Initialize Ruler & Grid
+    function setupGrid() {
+      rulerLayer.innerHTML = '';
+      gridLayer.innerHTML = '';
+      
+      // Grid lines from -6m to +6m in 0.5m increments
+      for (let m = -6; m <= 6; m += 0.5) {
+        const x = m * SCALE;
+        const isMajor = Number.isInteger(m);
+
+        // Vertical grid line
+        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gridLine.setAttribute('x1', x);
+        gridLine.setAttribute('y1', -220);
+        gridLine.setAttribute('x2', x);
+        gridLine.setAttribute('y2', 160);
+        gridLine.setAttribute('stroke', isMajor ? '#94a3b8' : '#475569');
+        gridLine.setAttribute('stroke-width', isMajor ? '1' : '0.5');
+        gridLayer.appendChild(gridLine);
+
+        // Ruler ticks on floor
+        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        tick.setAttribute('x1', x);
+        tick.setAttribute('y1', 160);
+        tick.setAttribute('x2', x);
+        tick.setAttribute('y2', isMajor ? 172 : 166);
+        tick.setAttribute('stroke', isMajor ? '#94a3b8' : '#64748b');
+        tick.setAttribute('stroke-width', isMajor ? '1.5' : '1');
+        rulerLayer.appendChild(tick);
+
+        if (isMajor) {
+          const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          lbl.setAttribute('x', x);
+          lbl.setAttribute('y', 182);
+          lbl.setAttribute('text-anchor', 'middle');
+          lbl.setAttribute('fill', '#64748b');
+          lbl.setAttribute('font-size', '10');
+          lbl.textContent = (m > 0 ? `+${m}m` : `${m}m`);
+          rulerLayer.appendChild(lbl);
+        }
+      }
+    }
+
+    // Update positions and render visual simulation
+    function updateSimulation() {
+      // Physical calculations:
+      // Object distance: d_o = posMirror - posBoy
+      const d_o = posMirror - posBoy;
+      // Virtual image position: posImage = posMirror + d_o = 2*posMirror - posBoy
+      const posImage = 2 * posMirror - posBoy;
+      const d_i = posImage - posMirror; // equals d_o
+
+      // Displacement from reference positions:
+      const deltaBoy = posBoy - refBoy;
+      const deltaMirror = posMirror - refMirror;
+      const deltaImage = posImage - refImage;
+
+      // Update positions of SVG elements
+      const boyPx = posBoy * SCALE;
+      const mirrorPx = posMirror * SCALE;
+      const imagePx = posImage * SCALE;
+
+      boyGroup.setAttribute('transform', `translate(${boyPx}, 0)`);
+      mirrorGroup.setAttribute('transform', `translate(${mirrorPx}, 0)`);
+      imageGroup.setAttribute('transform', `translate(${imagePx}, 0)`);
+
+      // Update virtual zone rectangle
+      const vz = document.getElementById('virtualZone');
+      vz.setAttribute('x', mirrorPx);
+      vz.setAttribute('width', Math.max(0, 700 - mirrorPx));
+
+      // Distance lines
+      const boyDistLine = document.getElementById('boyDistLine');
+      boyDistLine.setAttribute('x1', 0);
+      boyDistLine.setAttribute('x2', (posMirror - posBoy) * SCALE);
+      document.getElementById('boyDistText').setAttribute('x', ((posMirror - posBoy) * SCALE) / 2);
+      document.getElementById('boyDistText').textContent = `d_o = ${d_o.toFixed(2)} m`;
+
+      const imageDistLine = document.getElementById('imageDistLine');
+      imageDistLine.setAttribute('x1', 0);
+      imageDistLine.setAttribute('x2', (posMirror - posImage) * SCALE);
+      document.getElementById('imageDistText').setAttribute('x', ((posMirror - posImage) * SCALE) / 2);
+      document.getElementById('imageDistText').textContent = `d_i = ${d_i.toFixed(2)} m`;
+
+      // Total Span line (Boy to Image)
+      const totalSpanGroup = document.getElementById('totalSpanGroup');
+      const totalSpanLine = document.getElementById('totalSpanLine');
+      const totalSpanBadge = document.getElementById('totalSpanBadge');
+      const totalSpanText = document.getElementById('totalSpanText');
+      const midPoint = (boyPx + imagePx) / 2;
+
+      totalSpanLine.setAttribute('x1', boyPx);
+      totalSpanLine.setAttribute('x2', imagePx);
+      totalSpanBadge.setAttribute('x', midPoint - 65);
+      totalSpanText.setAttribute('x', midPoint);
+      totalSpanText.textContent = `Boy ↔ Image: ${(d_o + d_i).toFixed(2)} m`;
+
+      // Readouts in Overlay
+      statDo.textContent = `${d_o.toFixed(2)} m`;
+      statDi.textContent = `${d_i.toFixed(2)} m`;
+      statSeparation.textContent = `${(d_o + d_i).toFixed(2)} m`;
+
+      // Draw Ghost References
+      drawGhostReferences();
+    }
+
+    // Ghost indicators of the reference (starting) position
+    function drawGhostReferences() {
+      ghostLayer.innerHTML = '';
+      if (Math.abs(posBoy - refBoy) > 0.05) {
+        const ghost = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        ghost.setAttribute('transform', `translate(${refBoy * SCALE}, 0)`);
+        ghost.innerHTML = `
+          <ellipse cx="0" cy="30" r="20" fill="none" stroke="#818cf8" stroke-width="2" stroke-dasharray="3 3"/>
+          <rect x="-15" y="55" width="30" height="50" rx="8" fill="none" stroke="#818cf8" stroke-width="2" stroke-dasharray="3 3"/>
+          <text x="0" y="-18" text-anchor="middle" fill="#818cf8" font-size="10">Initial Boy</text>
+        `;
+        ghostLayer.appendChild(ghost);
+      }
+
+      if (Math.abs(posMirror - refMirror) > 0.05) {
+        const ghostM = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        ghostM.setAttribute('transform', `translate(${refMirror * SCALE}, 0)`);
+        ghostM.innerHTML = `
+          <line x1="0" y1="-155" x2="0" y2="155" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 4"/>
+          <text x="0" y="-165" text-anchor="middle" fill="#38bdf8" font-size="10">Initial Mirror</text>
+        `;
+        ghostLayer.appendChild(ghostM);
+      }
+
+      if (Math.abs(2 * posMirror - posBoy - refImage) > 0.05) {
+        const ghostImg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        ghostImg.setAttribute('transform', `translate(${refImage * SCALE}, 0)`);
+        ghostImg.innerHTML = `
+          <ellipse cx="0" cy="30" r="20" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3 3"/>
+          <rect x="-15" y="55" width="30" height="50" rx="8" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3 3"/>
+          <text x="0" y="-18" text-anchor="middle" fill="#f59e0b" font-size="10">Initial Image</text>
+        `;
+        ghostLayer.appendChild(ghostImg);
+      }
+    }
+
+    // Reset relative displacement counters to current positions
+    function resetDisplacement() {
+      refBoy = posBoy;
+      refMirror = posMirror;
+      refImage = 2 * posMirror - posBoy;
+      updateSimulation();
+    }
+
+    // Reset everything back to default starting positions
+    function resetAllPositions() {
+      posBoy = -2.5;
+      posMirror = 0.0;
+      refBoy = -2.5;
+      refMirror = 0.0;
+      refImage = 2.5;
+      updateSimulation();
+    }
+
+    // Pointer events for Boy
+    boyGroup.addEventListener('pointerdown', (e) => {
+      isDraggingBoy = true;
+      const pt = getSvgCoords(e);
+      dragStartX = pt.x;
+      initialObjX = posBoy * SCALE;
+      boyGroup.setPointerCapture(e.pointerId);
+      boyGroup.classList.remove('grab-cursor');
+      boyGroup.classList.add('grabbing-cursor');
+      e.stopPropagation();
+    });
+
+    // Pointer events for Mirror
+    mirrorGroup.addEventListener('pointerdown', (e) => {
+      isDraggingMirror = true;
+      const pt = getSvgCoords(e);
+      dragStartX = pt.x;
+      initialObjX = posMirror * SCALE;
+      mirrorGroup.setPointerCapture(e.pointerId);
+      mirrorGroup.classList.remove('grab-cursor');
+      mirrorGroup.classList.add('grabbing-cursor');
+      e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDraggingBoy && !isDraggingMirror) return;
+      const pt = getSvgCoords(e);
+      const deltaX = pt.x - dragStartX;
+
+      if (isDraggingBoy) {
+        let newX = (initialObjX + deltaX) / SCALE;
+        // Keep boy to the left of mirror with at least 0.4m spacing, bounded by -6.0m
+        const maxBoy = posMirror - 0.4;
+        newX = Math.max(-5.8, Math.min(maxBoy, newX));
+        posBoy = Math.round(newX * 100) / 100;
+        updateSimulation();
+      } else if (isDraggingMirror) {
+        let newMirrorX = (initialObjX + deltaX) / SCALE;
+        // Mirror must stay to the right of boy with at least 0.4m spacing, bounded by 3.0m
+        const minMirror = posBoy + 0.4;
+        newMirrorX = Math.max(minMirror, Math.min(2.5, newMirrorX));
+        posMirror = Math.round(newMirrorX * 100) / 100;
+        updateSimulation();
+      }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (isDraggingBoy) {
+        isDraggingBoy = false;
+        boyGroup.classList.remove('grabbing-cursor');
+        boyGroup.classList.add('grab-cursor');
+      }
+      if (isDraggingMirror) {
+        isDraggingMirror = false;
+        mirrorGroup.classList.remove('grabbing-cursor');
+        mirrorGroup.classList.add('grab-cursor');
+      }
+    });
+
+    // Startup
+    document.addEventListener('DOMContentLoaded', () => {
+      setupGrid();
+      updateSimulation();
+
+      // Render math equations via KaTeX
+      if (typeof renderMathInElement === 'function') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ],
+          throwOnError: false
+        });
+      }
+    });
+  </script>
+</body>
+</html>
